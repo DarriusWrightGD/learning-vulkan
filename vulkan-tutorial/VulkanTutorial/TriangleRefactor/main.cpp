@@ -42,7 +42,6 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 }
 
 static std::vector<char> readFile(const std::string & filename) {
-	cout << filename << endl;
 	std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
 	if (!file.is_open()) {
@@ -336,8 +335,8 @@ private:
 	}
 
 	void createGraphicsPipeline() {
-		auto vertexShaderCode = readFile("shaders/bin/shader.vert.spv");
-		auto fragmentShaderCode = readFile("shaders/bin/shader.frag.spv");
+		auto vertexShaderCode = readFile("shaders/shader.vert.spv");
+		auto fragmentShaderCode = readFile("shaders/shader.frag.spv");
 
 		createShaderModule(vertexShaderCode, vertexShaderModule);
 		createShaderModule(fragmentShaderCode, fragmentShaderModule);

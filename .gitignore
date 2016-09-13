@@ -63,3 +63,5 @@ ipch/
 *.VC.db
 *.VC.VC.opendb
 
+# Binary glsl to spv files
+*.spv

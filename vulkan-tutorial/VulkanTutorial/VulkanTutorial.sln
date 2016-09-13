@@ -5,6 +5,8 @@ VisualStudioVersion = 14.0.25123.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloTriangle", "HelloTriangle\HelloTriangle.vcxproj", "{0B713EC7-B76B-4D80-A374-9E007179D897}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TriangleRefactor", "TriangleRefactor\TriangleRefactor.vcxproj", "{34E7C4C0-E975-43EC-8225-7BAB5C1AED32}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,6 +23,14 @@ Global
 		{0B713EC7-B76B-4D80-A374-9E007179D897}.Release|x64.Build.0 = Release|x64
 		{0B713EC7-B76B-4D80-A374-9E007179D897}.Release|x86.ActiveCfg = Release|Win32
 		{0B713EC7-B76B-4D80-A374-9E007179D897}.Release|x86.Build.0 = Release|Win32
+		{34E7C4C0-E975-43EC-8225-7BAB5C1AED32}.Debug|x64.ActiveCfg = Debug|x64
+		{34E7C4C0-E975-43EC-8225-7BAB5C1AED32}.Debug|x64.Build.0 = Debug|x64
+		{34E7C4C0-E975-43EC-8225-7BAB5C1AED32}.Debug|x86.ActiveCfg = Debug|Win32
+		{34E7C4C0-E975-43EC-8225-7BAB5C1AED32}.Debug|x86.Build.0 = Debug|Win32
+		{34E7C4C0-E975-43EC-8225-7BAB5C1AED32}.Release|x64.ActiveCfg = Release|x64
+		{34E7C4C0-E975-43EC-8225-7BAB5C1AED32}.Release|x64.Build.0 = Release|x64
+		{34E7C4C0-E975-43EC-8225-7BAB5C1AED32}.Release|x86.ActiveCfg = Release|Win32
+		{34E7C4C0-E975-43EC-8225-7BAB5C1AED32}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
