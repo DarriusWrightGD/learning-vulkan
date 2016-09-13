@@ -273,7 +273,7 @@ private:
 
 		vkOk(vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data()), "Failed to allocate command buffers");
 
-		for (auto i = 0; i < commandBuffers.size(); i++) {
+		for (unsigned int i = 0; i < commandBuffers.size(); i++) {
 			VkCommandBufferBeginInfo beginInfo = {};
 			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 			beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
@@ -316,7 +316,7 @@ private:
 	{
 		swapChainFramebuffers.resize(swapChainImageViews.size(), VDeleter<VkFramebuffer>(device, vkDestroyFramebuffer));
 
-		for (auto i = 0; i < swapChainImageViews.size(); i++) {
+		for (unsigned int i = 0; i < swapChainImageViews.size(); i++) {
 			VkImageView attachments[] = {
 				swapChainImageViews[i]
 			};
@@ -509,7 +509,7 @@ private:
 
 	void createImageViews() {
 		swapChainImageViews.resize(swapChainImages.size(), VDeleter<VkImageView>{device, vkDestroyImageView});
-		for (auto i = 0; i < swapChainImages.size(); i++) {
+		for (unsigned int  i = 0; i < swapChainImages.size(); i++) {
 			VkImageViewCreateInfo createInfo = {};
 			createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 			createInfo.image = swapChainImages[i];
