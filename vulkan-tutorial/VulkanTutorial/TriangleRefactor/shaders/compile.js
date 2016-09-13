@@ -18,19 +18,10 @@ const walk = function (dir) {
 const files = walk('./shaders');
 const shaderExpression = /^.*\.(frag|vert|geo|geom|comp|vertex|fragment|tess)$/gi;
 
-const shaderBin = './shaders/bin';
-if (!fs.existsSync(shaderBin)) {
-  fs.mkdirSync(shaderBin);
-}
-
 files.forEach(f=> {
   if (f.match(shaderExpression)) {
     var path = f.substring(0,f.lastIndexOf("/"));
-
-    if (!fs.existsSync(path)) {
-      fs.mkdirSync(path);
-    }
-
+    if (!fs.existsSync(path)) fs.mkdirSync(path);
     exec(`${vulkanGlsl} -V ${f} -o ${f}.spv`);
   }
 });
