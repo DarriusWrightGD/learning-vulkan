@@ -105,9 +105,29 @@ private:
 	void initWindow() {
 		glfwInit();
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
 		window = glfwCreateWindow(width, height, "Vulkan", nullptr, nullptr);
+		glfwSetWindowUserPointer(window, this);
+		glfwSetWindowSizeCallback(window, HelloTriangleApplication::onWindowResized);
+	}
+
+	static void onWindowResized(GLFWwindow * window, int width, int height) {
+		if (width == 0 || height == 0) return;
+
+		auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
+		app->recreateSwapChain();
+	}
+
+	void recreateSwapChain() {
+		cout << "Recreating the swap chain!" << endl;
+		vkDeviceWaitIdle(device);
+
+		createSwapChain();
+		createImageViews();
+		createRenderPass();
+		createGraphicsPipeline();
+		createFramebuffers();
+		createCommandBuffers();
 	}
 
 	void initInstance() {
@@ -188,7 +208,7 @@ private:
 			}
 
 			if (!layerFound) {
-				cout << layerName << ", not found!" << endl;
+				cerr << layerName << ", not found!" << endl;
 				return false;
 			}
 		}
@@ -240,6 +260,10 @@ private:
 	}
 
 	void createCommandBuffers() {
+		if (commandBuffers.size() > 0) {
+			vkFreeCommandBuffers(device, commandPool, commandBuffers.size(), commandBuffers.data());
+		}
+
 		commandBuffers.resize(swapChainFramebuffers.size());
 		VkCommandBufferAllocateInfo allocInfo = {};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -554,7 +578,13 @@ private:
 		createInfo.presentMode = presentMode;
 		createInfo.clipped = VK_TRUE;
 		createInfo.oldSwapchain = VK_NULL_HANDLE;
-		vkOk(vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChain), "Failed to create the swap chain");
+
+		VkSwapchainKHR oldSwapChain = swapChain;
+		createInfo.oldSwapchain = oldSwapChain;
+
+		VkSwapchainKHR newSwapchain;
+		vkOk(vkCreateSwapchainKHR(device, &createInfo, nullptr, &newSwapchain), "Failed to create the swap chain");
+		*&swapChain = newSwapchain;
 
 		vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr);
 		swapChainImages.resize(imageCount);
@@ -807,6 +837,13 @@ private:
 		presentInfo.pImageIndices = &imageIndex;
 
 		auto result = vkQueuePresentKHR(presentQueue, &presentInfo);
+
+		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+			recreateSwapChain();
+		}
+		else if(result != VK_SUCCESS){
+			vkOk(result, "Failed to present swap chain image!");
+		}
 	}
 
 	GLFWwindow* window;
