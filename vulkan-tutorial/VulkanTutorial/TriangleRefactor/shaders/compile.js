@@ -1,7 +1,7 @@
 const exec = require('child_process').exec;
 const fs = require('fs');
 
-const vulkanGlsl = 'C:/VulkanSDK/1.0.26.0/Bin32/glslangValidator.exe';
+const vulkanGlsl = '%VULKAN_SDK%/Bin32/glslangValidator.exe';
 
 const walk = function (dir) {
   var results = []
