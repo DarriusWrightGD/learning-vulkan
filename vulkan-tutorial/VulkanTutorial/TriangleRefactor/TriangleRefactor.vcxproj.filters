@@ -26,6 +26,18 @@
     <ClInclude Include="VkDeleter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Builders\InstanceBuilder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Builders\FrameBufferInfoBuilder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Builders\GraphicsPipelineBuilder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="FileReader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\shader.vert" />

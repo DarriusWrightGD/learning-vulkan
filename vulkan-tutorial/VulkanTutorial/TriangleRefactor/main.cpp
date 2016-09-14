@@ -1,7 +1,6 @@
 #define GLFW_INCLUDE_VULKAN
 
 #include <GLFW\glfw3.h>
-#include <GLFW\glfw3native.h>
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -18,6 +17,10 @@
 #include <vector>
 #include "VkDeleter.h"
 #include "Exception.h"
+#include "FileReader.h"
+#include "Builders\InstanceBuilder.h"
+#include "Builders\FrameBufferInfoBuilder.h"
+#include "Builders\GraphicsPipelineBuilder.h"
 
 using std::cout;
 using std::endl;
@@ -41,23 +44,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	return VK_FALSE;
 }
 
-static std::vector<char> readFile(const std::string & filename) {
-	std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
-	if (!file.is_open()) {
-		throw std::runtime_error("Failed to open files");
-	}
-
-	size_t fileSize = static_cast<size_t>(file.tellg());
-	std::vector<char> buffer(fileSize);
-
-	file.seekg(0);
-	file.read(buffer.data(), fileSize);
-
-	file.close();
-
-	return buffer;
-}
 
 VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback) {
 	auto func = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
@@ -135,45 +122,18 @@ private:
 			throw std::runtime_error("validation layers requested, but not available");
 		}
 
-		VkApplicationInfo applicationInfo = {};
-		applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-		applicationInfo.pApplicationName = "Hello Triangle";
-		applicationInfo.pEngineName = "No Engine";
+		auto instanceBuilder = InstanceInfoBuilder();
 
-		applicationInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-		applicationInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-		applicationInfo.apiVersion = VK_API_VERSION_1_0;
-
-		VkInstanceCreateInfo createInstanceInfo = {};
-		createInstanceInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-		createInstanceInfo.pApplicationInfo = &applicationInfo;
-
-
-
-
-		unsigned int glfwExtensionCount = 0;
-		const char ** glfwExtensions;
-
-		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-
-		createInstanceInfo.enabledExtensionCount = glfwExtensionCount;
-		createInstanceInfo.ppEnabledExtensionNames = glfwExtensions;
+		instanceBuilder
+			.WithApplicationInfo(ApplicationInfoBuilder().WithApplicationName("Hello Triangle")->Build());
 
 		if (enableValidationLayers) {
-			createInstanceInfo.enabledLayerCount = validationLayers.size();
-			createInstanceInfo.ppEnabledLayerNames = validationLayers.data();
-		}
-		else {
-			createInstanceInfo.enabledLayerCount = 0;
-
+			instanceBuilder.WithEnabledLayers(validationLayers.size(), validationLayers.data());
 		}
 
 		auto exten = getRequiredExtensions();
-		createInstanceInfo.enabledExtensionCount = exten.size();
-		createInstanceInfo.ppEnabledExtensionNames = exten.data();
-
-		vkOk(vkCreateInstance(&createInstanceInfo, nullptr, &instance), "Failed to create instance!");
+		instanceBuilder.WithEnabledExtensions(exten.size(), exten.data());
+		vkOk(vkCreateInstance(&instanceBuilder.Build(), nullptr, &instance), "Failed to create instance!");
 	}
 
 	void setupDebugCallback() {
@@ -187,8 +147,6 @@ private:
 			throw std::runtime_error("failed to set up debug callback!");
 		}
 	}
-
-
 
 	bool checkValidationLayerSupport() {
 		uint32_t layerCount;
@@ -317,29 +275,15 @@ private:
 		swapChainFramebuffers.resize(swapChainImageViews.size(), VDeleter<VkFramebuffer>(device, vkDestroyFramebuffer));
 
 		for (unsigned int i = 0; i < swapChainImageViews.size(); i++) {
-			VkImageView attachments[] = {
-				swapChainImageViews[i]
-			};
-
-			VkFramebufferCreateInfo framebufferInfo = {};
-			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-			framebufferInfo.renderPass = renderPass;
-			framebufferInfo.attachmentCount = 1;
-			framebufferInfo.pAttachments = attachments;
-			framebufferInfo.height = swapChainExtent.height;
-			framebufferInfo.width = swapChainExtent.width;
-			framebufferInfo.layers = 1;
-
-			vkOk(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]), "Failed to create framebuffer");
+			VkImageView attachments[] = { swapChainImageViews[i] };
+			auto frameBufferInfoBuilder = FrameBufferInfoBuilder(renderPass,swapChainExtent,attachments, 1);
+			vkOk(vkCreateFramebuffer(device, &frameBufferInfoBuilder.Build(), nullptr, &swapChainFramebuffers[i]), "Failed to create framebuffer");
 		}
 	}
 
 	void createGraphicsPipeline() {
-		auto vertexShaderCode = readFile("shaders/shader.vert.spv");
-		auto fragmentShaderCode = readFile("shaders/shader.frag.spv");
-
-		createShaderModule(vertexShaderCode, vertexShaderModule);
-		createShaderModule(fragmentShaderCode, fragmentShaderModule);
+		vkOk(vkCreateShaderModule(device, &ShaderModuleInfoBuilder(readFile("shaders/shader.vert.spv")).Build(), nullptr, &vertexShaderModule));
+		vkOk(vkCreateShaderModule(device, &ShaderModuleInfoBuilder(readFile("shaders/shader.frag.spv")).Build(), nullptr, &fragmentShaderModule));
 
 		VkPipelineShaderStageCreateInfo vertexShaderStageInfo = {};
 		vertexShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;

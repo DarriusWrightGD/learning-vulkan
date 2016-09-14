@@ -159,7 +159,11 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="FileReader.h" />
+    <ClInclude Include="Builders\FrameBufferInfoBuilder.h" />
+    <ClInclude Include="Builders\GraphicsPipelineBuilder.h" />
     <ClInclude Include="Exception.h" />
+    <ClInclude Include="Builders\InstanceBuilder.h" />
     <ClInclude Include="VkDeleter.h" />
   </ItemGroup>
   <ItemGroup>
