@@ -159,6 +159,8 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Builders\RenderpassBuilder.h" />
+    <ClInclude Include="Builders\SwapchainInfoBuilder.h" />
     <ClInclude Include="FileReader.h" />
     <ClInclude Include="Builders\FrameBufferInfoBuilder.h" />
     <ClInclude Include="Builders\GraphicsPipelineBuilder.h" />

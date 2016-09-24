@@ -21,6 +21,8 @@
 #include "Builders\InstanceBuilder.h"
 #include "Builders\FrameBufferInfoBuilder.h"
 #include "Builders\GraphicsPipelineBuilder.h"
+#include "Builders\RenderpassBuilder.h"
+#include "Builders\SwapchainInfoBuilder.h"
 
 using std::cout;
 using std::endl;
@@ -133,7 +135,8 @@ private:
 
 		auto exten = getRequiredExtensions();
 		instanceBuilder.WithEnabledExtensions(exten.size(), exten.data());
-		vkOk(vkCreateInstance(&instanceBuilder.Build(), nullptr, &instance), "Failed to create instance!");
+		auto instanceInfo = instanceBuilder.Build();
+		vkOk(vkCreateInstance(&instanceInfo, nullptr, &instance), "Failed to create instance!");
 	}
 
 	void setupDebugCallback() {
@@ -285,160 +288,35 @@ private:
 		vkOk(vkCreateShaderModule(device, &ShaderModuleInfoBuilder(readFile("shaders/shader.vert.spv")).Build(), nullptr, &vertexShaderModule));
 		vkOk(vkCreateShaderModule(device, &ShaderModuleInfoBuilder(readFile("shaders/shader.frag.spv")).Build(), nullptr, &fragmentShaderModule));
 
-		VkPipelineShaderStageCreateInfo vertexShaderStageInfo = {};
-		vertexShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		vertexShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-		vertexShaderStageInfo.module = vertexShaderModule;
-		vertexShaderStageInfo.pName = "main";
+		auto shaderBuilder = ShaderStageBuilder();
+		auto shaderStages = shaderBuilder
+			.AddVertexShader(vertexShaderModule)
+			->AddFragmentShader(fragmentShaderModule)
+			->BuildStages();
 
-		VkPipelineShaderStageCreateInfo fragmentShaderStageInfo = {};
-		fragmentShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		fragmentShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-		fragmentShaderStageInfo.module = fragmentShaderModule;
-		fragmentShaderStageInfo.pName = "main";
+		auto viewport = ViewportBuilder(width, height).Build();
+		auto scissor = ScissorBuilder(swapChainExtent).Build();
 
-		VkPipelineShaderStageCreateInfo shaderStages[] = { vertexShaderStageInfo, fragmentShaderStageInfo };
-
-		VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
-		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		vertexInputInfo.vertexAttributeDescriptionCount = 0;
-		vertexInputInfo.vertexBindingDescriptionCount = 0;
-
-		VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
-		inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-		inputAssembly.primitiveRestartEnable = VK_FALSE;
-		inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-
-		VkViewport viewport = {};
-		viewport.x = 0.0f;
-		viewport.y = 0.0f;
-		viewport.width = static_cast<float>(swapChainExtent.width);
-		viewport.height = static_cast<float>(swapChainExtent.height);
-		viewport.minDepth = 0.0f;
-		viewport.maxDepth = 1.0f;
-
-		VkRect2D scissor = {};
-		scissor.offset = { 0,0 };
-		scissor.extent = swapChainExtent;
-
-		VkPipelineViewportStateCreateInfo viewportStateInfo = {};
-		viewportStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-		viewportStateInfo.viewportCount = 1;
-		viewportStateInfo.pViewports = &viewport;
-		viewportStateInfo.scissorCount = 1;
-		viewportStateInfo.pScissors = &scissor;
-
-		VkPipelineRasterizationStateCreateInfo rasterizer = {};
-		rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-		rasterizer.depthClampEnable = VK_FALSE;
-		rasterizer.rasterizerDiscardEnable = VK_FALSE;
-		rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-		rasterizer.lineWidth = 1.0f;
-		rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-		rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
-		rasterizer.depthBiasEnable = VK_FALSE;
-		rasterizer.depthBiasConstantFactor = 0.0f;
-		rasterizer.depthBiasClamp = 0.0f;
-		rasterizer.depthBiasSlopeFactor = 0.0f;
-
-		VkPipelineMultisampleStateCreateInfo multisampleInfo = {};
-		multisampleInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-		multisampleInfo.sampleShadingEnable = VK_FALSE;
-		multisampleInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-		multisampleInfo.minSampleShading = 1.0f;
-		multisampleInfo.pSampleMask = nullptr;
-		multisampleInfo.alphaToOneEnable = VK_FALSE;
-		multisampleInfo.alphaToCoverageEnable = VK_FALSE;
-
-		VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
-		colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-		colorBlendAttachment.blendEnable = VK_FALSE;
-		colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-		colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-		colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-		colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-		colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-		colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-
-		VkPipelineColorBlendStateCreateInfo colorBlending = {};
-		colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-		colorBlending.logicOpEnable = VK_FALSE;
-		colorBlending.logicOp = VK_LOGIC_OP_COPY;
-		colorBlending.attachmentCount = 1;
-		colorBlending.pAttachments = &colorBlendAttachment;
-		colorBlending.blendConstants[0] = 0.0f;
-		colorBlending.blendConstants[1] = 0.0f;
-		colorBlending.blendConstants[2] = 0.0f;
-		colorBlending.blendConstants[3] = 0.0f;
-
-		VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
-		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = 0;
-		pipelineLayoutInfo.pSetLayouts = nullptr;
-		pipelineLayoutInfo.pushConstantRangeCount = 0;
-		pipelineLayoutInfo.pPushConstantRanges = 0;
+		auto viewportStateInfo = ViewportStateBuilder(&viewport, &scissor).Build();
+		auto colorBlending = ColorBlendStateBuilder().Build();
+		auto pipelineLayoutInfo = PipelineLayoutBuilder().Build();
 
 		vkOk(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout), "Failed to create the pipeline layout!");
 
-		VkGraphicsPipelineCreateInfo pipelineInfo = {};
-		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-		pipelineInfo.stageCount = 2;
-		pipelineInfo.pStages = shaderStages;
-		pipelineInfo.pVertexInputState = &vertexInputInfo;
-		pipelineInfo.pInputAssemblyState = &inputAssembly;
-		pipelineInfo.pViewportState = &viewportStateInfo;
-		pipelineInfo.pMultisampleState = &multisampleInfo;
-		pipelineInfo.pRasterizationState = &rasterizer;
-		pipelineInfo.pDepthStencilState = nullptr;
-		pipelineInfo.pColorBlendState = &colorBlending;
-		pipelineInfo.pDynamicState = nullptr;
-		pipelineInfo.layout = pipelineLayout;
-		pipelineInfo.renderPass = renderPass;
-		pipelineInfo.subpass = 0;
-		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
-		pipelineInfo.basePipelineIndex = -1;
+		auto pipelineInfo = GraphicsPipelineBuilder(shaderStages,2,&viewportStateInfo,
+			&colorBlending,pipelineLayout,renderPass).Build();
+
 		vkOk(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline));
 	}
 
 	void createRenderPass() {
-		VkAttachmentDescription colorAttachment = {};
-		colorAttachment.format = swapChainImageFormat;
-		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		auto colorAttachment = AttachmentDescriptionBuilder(swapChainImageFormat).Build();
+		auto colorAttachmentRef = AttachmentReferenceBuilder().Build();
 
-		VkAttachmentReference colorAttachmentRef = {};
-		colorAttachmentRef.attachment = 0;
-		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		VkSubpassDescription subPass = {};
-		subPass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-
-		subPass.colorAttachmentCount = 1;
-		subPass.pColorAttachments = &colorAttachmentRef;
-
-		VkSubpassDependency dependency = {};
-		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-		dependency.dstSubpass = 0;
-
-		dependency.srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-		dependency.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-		VkRenderPassCreateInfo renderPassInfo = {};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-		renderPassInfo.attachmentCount = 1;
-		renderPassInfo.pAttachments = &colorAttachment;
-		renderPassInfo.subpassCount = 1;
-		renderPassInfo.pSubpasses = &subPass;
-		renderPassInfo.dependencyCount = 1;
-		renderPassInfo.pDependencies = &dependency;
-
+		auto subPass = SubpassDescriptionBuilder(&colorAttachmentRef).Build();
+		auto subpassDependancy = SubpassDependencyBuilder().Build();
+		auto renderPassInfo = RenderpassInfoBuilder(&colorAttachment,&subPass, &subpassDependancy).Build();
+		
 		vkOk(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass), "Failed to create render pass!");
 	}
 
@@ -459,18 +337,19 @@ private:
 			createInfo.image = swapChainImages[i];
 			createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
 			createInfo.format = swapChainImageFormat;
-
+			
 			createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
 			createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
 			createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
 			createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-
+			
 			createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 			createInfo.subresourceRange.baseMipLevel = 0;
 			createInfo.subresourceRange.levelCount = 1;
 			createInfo.subresourceRange.baseArrayLayer = 0;
 			createInfo.subresourceRange.layerCount = 1;
 
+			//auto createInfo = SwapchainImageViewInfoBuilder(swapChainImages[i], swapChainImageFormat).Build();
 			vkOk(vkCreateImageView(device, &createInfo, nullptr, &swapChainImageViews[i]), "Failed to create image view");
 		}
 	}
