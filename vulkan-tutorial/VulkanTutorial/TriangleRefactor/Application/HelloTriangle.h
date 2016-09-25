@@ -3,7 +3,7 @@
 #include "VulkanApplication.h"
 #include <glm\glm.hpp>
 #include <array>
-#include "..\Data\Vertex.h";
+#include "..\Data\Vertex.h"
 
 class HelloTriangle : public VulkanApplication {
 protected:
@@ -93,8 +93,8 @@ private:
 	VDeleter<VkBuffer> vertexBufferMemory{ device, vkFreeMemory };
 
 	std::vector<Vertex> vertices = {
-		{ { 0.0f, -0.5f, 0.0f },{ 1.0f, 1.0f, 1.0f } },
-		{ { 0.5f, 0.5f, 0.0f },{ 0.0f, 1.0f, 0.0f } },
-		{ { -0.5f, 0.5f, 0.0f },{ 0.0f, 0.0f, 1.0f } }
+		{ { 0.0f, -0.5f, 0.0f },{ 1.0f, 0.0f, 1.0f } },
+		{ { 0.5f, 0.5f, 0.0f },{ 1.0f, 1.0f, 0.0f } },
+		{ { -0.5f, 0.5f, 0.0f },{ 0.0f, 1.0f, 1.0f } }
 	};
 };
