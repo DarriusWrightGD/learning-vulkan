@@ -62,13 +62,15 @@ class VertexInputBuilder
 {
 public:
 	
-	VertexInputBuilder * WithAttributeCount(unsigned int count) {
+	VertexInputBuilder * WithAttributes(const VkVertexInputAttributeDescription * attributes,unsigned int count) {
 		vertexAttributeCount = count;
+		vertexAttributeDescriptions = attributes;
 		return this;
 	}
 
-	VertexInputBuilder * WithBindingCount(unsigned int count) {
+	VertexInputBuilder * WithBindings(const VkVertexInputBindingDescription * bindings, unsigned int count) {
 		vertexBindingCount = count;
+		vertexBindingDescriptions = bindings;
 		return this;
 	}
 
@@ -78,12 +80,16 @@ public:
 		vertexInputInfo.sType = type;
 		vertexInputInfo.vertexAttributeDescriptionCount = vertexAttributeCount;
 		vertexInputInfo.vertexBindingDescriptionCount = vertexBindingCount;
+		vertexInputInfo.pVertexAttributeDescriptions = vertexAttributeDescriptions;
+		vertexInputInfo.pVertexBindingDescriptions = vertexBindingDescriptions;
 
 		return vertexInputInfo;
 	}
 private:
 	unsigned int vertexAttributeCount = 0;
 	unsigned int vertexBindingCount = 0;
+	const VkVertexInputAttributeDescription * vertexAttributeDescriptions = nullptr;
+	const VkVertexInputBindingDescription * vertexBindingDescriptions = nullptr;
 	VkStructureType type = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 };
 

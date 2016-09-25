@@ -100,7 +100,7 @@
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;VkLayer_api_dump.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
-      <Command>node shaders/compile.js</Command>
+      <Command>node compile.js</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -135,7 +135,7 @@
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;VkLayer_api_dump.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
-      <Command>node shaders/compile.js</Command>
+      <Command>node compile.js</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -157,8 +157,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="VulkanDebug.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Application\HelloTriangle.h" />
+    <ClInclude Include="Data\Vertex.h" />
+    <ClInclude Include="Application\VulkanApplication.h" />
     <ClInclude Include="Builders\RenderpassBuilder.h" />
     <ClInclude Include="Builders\SwapchainInfoBuilder.h" />
     <ClInclude Include="FileReader.h" />
@@ -167,9 +171,10 @@
     <ClInclude Include="Exception.h" />
     <ClInclude Include="Builders\InstanceBuilder.h" />
     <ClInclude Include="VkDeleter.h" />
+    <ClInclude Include="VulkanValidation.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\compile.js" />
+    <None Include="compile.js" />
     <None Include="shaders\shader.frag" />
     <None Include="shaders\shader.vert" />
   </ItemGroup>

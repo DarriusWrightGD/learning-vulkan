@@ -2,7 +2,7 @@ const exec = require('child_process').exec;
 const fs = require('fs');
 
 const vulkanGlsl = '%VULKAN_SDK%/Bin32/glslangValidator.exe';
-
+console.log("Building");
 const walk = function (dir) {
   var results = []
   var list = fs.readdirSync(dir)
@@ -20,8 +20,16 @@ const shaderExpression = /^.*\.(frag|vert|geo|geom|comp|vertex|fragment|tess)$/g
 
 files.forEach(f=> {
   if (f.match(shaderExpression)) {
-    var path = f.substring(0,f.lastIndexOf("/"));
+    var path = f.substring(0, f.lastIndexOf("/"));
     if (!fs.existsSync(path)) fs.mkdirSync(path);
-    exec(`${vulkanGlsl} -V ${f} -o ${f}.spv`);
+    var command = `${vulkanGlsl} -V ${f} -o ${f}.spv`;
+
+    console.log("Running the following command: " + command);
+
+    exec(command, (error, stdout, stderr) => {
+      if (error) console.error(`exec ${error.trim()}`);
+      if (stdout) console.log(`stdout: ${stdout.trim()}`);
+      if(stderr) console.log(`stderr: ${stderr.trim()}`);
+    });
   }
 });
