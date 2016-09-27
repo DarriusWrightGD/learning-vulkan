@@ -31,13 +31,15 @@
 using std::cout;
 using std::endl;
 using std::set;
-
+#include "..\Systems\Graphics\IVulkanGraphicsSystem.h"
+#include <memory>
 
 class VulkanApplication {
 public:
-	VulkanApplication(uint32_t width = 800, uint32_t height = 600) : width(width), height(height) {
+	VulkanApplication(std::shared_ptr<IVulkanGraphicsSystem> graphicsSystem) : width(800), height(600) {
 
 	}
+	//virtual ~VulkanApplication() noexcept = default;
 	virtual void OnInit() { }
 	virtual void OnResize(int width, int height) { }
 	virtual void Draw(float time) { drawFrame(); }

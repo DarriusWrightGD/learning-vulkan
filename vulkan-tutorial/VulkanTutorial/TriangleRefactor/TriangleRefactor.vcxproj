@@ -22,7 +22,7 @@
     <ProjectGuid>{34E7C4C0-E975-43EC-8225-7BAB5C1AED32}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>TriangleRefactor</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.10240.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -161,15 +161,19 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application\HelloTriangle.h" />
+    <ClInclude Include="Builders\BufferInfoBuilder.h" />
     <ClInclude Include="Data\Vertex.h" />
     <ClInclude Include="Application\VulkanApplication.h" />
     <ClInclude Include="Builders\RenderpassBuilder.h" />
     <ClInclude Include="Builders\SwapchainInfoBuilder.h" />
+    <ClInclude Include="DependencySettings.h" />
+    <ClInclude Include="di.h" />
     <ClInclude Include="FileReader.h" />
     <ClInclude Include="Builders\FrameBufferInfoBuilder.h" />
     <ClInclude Include="Builders\GraphicsPipelineBuilder.h" />
     <ClInclude Include="Exception.h" />
     <ClInclude Include="Builders\InstanceBuilder.h" />
+    <ClInclude Include="Systems\Graphics\IVulkanGraphicsSystem.h" />
     <ClInclude Include="VkDeleter.h" />
     <ClInclude Include="VulkanValidation.h" />
   </ItemGroup>

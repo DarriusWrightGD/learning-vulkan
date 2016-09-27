@@ -4,8 +4,20 @@
 #include <glm\glm.hpp>
 #include <array>
 #include "..\Data\Vertex.h"
+#include "..\Builders\BufferInfoBuilder.h"
+using namespace std;
 
 class HelloTriangle : public VulkanApplication {
+public:
+	HelloTriangle(shared_ptr<IVulkanGraphicsSystem> graphicsSystem): VulkanApplication(graphicsSystem)
+	{
+
+	}
+
+	~HelloTriangle()
+	{
+
+	}
 protected:
 	virtual void CreateGraphicsPipeline() override {
 		vkOk(vkCreateShaderModule(device, &ShaderModuleInfoBuilder(readFile("shaders/shader.vert.spv")).Build(), nullptr, &vertexShaderModule));
@@ -64,7 +76,7 @@ protected:
 		VkMemoryAllocateInfo allocateInfo = {};
 		allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		allocateInfo.allocationSize = memoryRequirements.size;
-		allocateInfo.memoryTypeIndex = findMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		allocateInfo.memoryTypeIndex = findMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, physicalDevice);
 
 		vkOk(vkAllocateMemory(device, &allocateInfo, nullptr, &vertexBufferMemory), "Failed to allocate vertex buffer memory");
 
@@ -73,19 +85,6 @@ protected:
 		vkMapMemory(device, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
 		memcpy(data, vertices.data(), (size_t)bufferInfo.size);
 		vkUnmapMemory(device, vertexBufferMemory);
-	}
-
-	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
-		VkPhysicalDeviceMemoryProperties memoryProperties;
-		vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
-
-		for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; i++) {
-			if ((typeFilter & (1 << i)) && (memoryProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-				return i;
-			}
-		}
-
-		throw std::runtime_error("Failed to find a suitable memory type!");
 	}
 
 private:
