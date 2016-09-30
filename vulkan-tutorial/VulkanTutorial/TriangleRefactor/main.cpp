@@ -10,10 +10,7 @@ namespace di = boost::di;
 using namespace std;
 
 int main() {
-	//auto injector = di::make_injector(di::bind<IVulkanGraphicsSystem>().to<VulkanGraphicsSystem>());
-	auto injector = di::make_injector(di::bind<IVulkanGraphicsSystem>().to<VulkanGraphicsSystem>());
-	auto app = injector.create<shared_ptr<HelloTriangle>>();
-	//auto app = HelloTriangle(shared_ptr<VulkanGraphicsSystem>());
+	auto app = getInjector().create<shared_ptr<HelloTriangle>>();
 	try {
 		app->run();
 	}

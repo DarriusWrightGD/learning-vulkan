@@ -1,5 +1,6 @@
 #pragma once
 #include "..\FileReader.h"
+#include <vector>
 
 class ShaderModuleInfoBuilder {
 public:
@@ -48,8 +49,8 @@ public:
 		return AddStage(VK_SHADER_STAGE_FRAGMENT_BIT, shaderModule);
 	}
 
-	VkPipelineShaderStageCreateInfo* BuildStages() {
-		return shaders.data();
+	std::vector<VkPipelineShaderStageCreateInfo> BuildStages() {
+		return shaders;
 	}
 private:
 	const char * name = "main";
@@ -525,10 +526,10 @@ private:
 class GraphicsPipelineBuilder
 {
 public:
-	GraphicsPipelineBuilder(const VkPipelineShaderStageCreateInfo * shaders, uint32_t shaderCount,
+	GraphicsPipelineBuilder(const std::vector<VkPipelineShaderStageCreateInfo> & shaders,
 		const VkPipelineViewportStateCreateInfo * viewportState, const VkPipelineColorBlendStateCreateInfo * colorBlendState,
 		VkPipelineLayout pipelineLayout, VkRenderPass renderPass)
-	: shaderStages(shaders), shaderCount(shaderCount), viewportState(viewportState),
+	: shaderStages(shaders.data()), shaderCount(shaders.size()), viewportState(viewportState),
 		colorBlendState(colorBlendState), layout(pipelineLayout), renderPass(renderPass){
 
 	}

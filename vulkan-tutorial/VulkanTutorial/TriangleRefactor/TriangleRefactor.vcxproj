@@ -91,7 +91,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\darri\Documents\Visual Studio 2015\Libraries\glfw-3.2.1.bin.WIN32\include;C:\Users\darri\Documents\Visual Studio 2015\Libraries\glm;C:\VulkanSDK\1.0.26.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\darri\Documents\Visual Studio 2015\Libraries\glfw-3.2.1.bin.WIN32\include;C:\Users\darri\Documents\Visual Studio 2015\Libraries\glm;C:\VulkanSDK\1.0.26.0\Include;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -124,7 +124,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\darri\Documents\Visual Studio 2015\Libraries\glfw-3.2.1.bin.WIN32\include;C:\Users\darri\Documents\Visual Studio 2015\Libraries\glm;C:\VulkanSDK\1.0.26.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\darri\Documents\Visual Studio 2015\Libraries\glfw-3.2.1.bin.WIN32\include;C:\Users\darri\Documents\Visual Studio 2015\Libraries\glm;C:\VulkanSDK\1.0.26.0\Include;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -175,6 +175,7 @@
     <ClInclude Include="Builders\InstanceBuilder.h" />
     <ClInclude Include="Systems\Graphics\IVulkanGraphicsSystem.h" />
     <ClInclude Include="VkDeleter.h" />
+    <ClInclude Include="VkRelease.h" />
     <ClInclude Include="VulkanValidation.h" />
   </ItemGroup>
   <ItemGroup>
