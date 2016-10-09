@@ -8,8 +8,10 @@
 namespace di = boost::di;
 #include <memory>
 using namespace std;
-
+#include <cstdlib>
+#include <ctime>
 int main() {
+	srand(time(0));
 	auto app = getInjector().create<shared_ptr<HelloTriangle>>();
 	try {
 		app->run();

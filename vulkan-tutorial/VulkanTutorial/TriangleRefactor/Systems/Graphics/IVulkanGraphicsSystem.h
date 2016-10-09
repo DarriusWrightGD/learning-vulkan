@@ -3,17 +3,25 @@
 #include <vector>
 #include<functional>
 #include <glm\glm.hpp>
+#include <memory>
 
 #include "VkDeleter.h"
 #include "VkRelease.h"
 #include "VulkanDebug.h"
 #include "Builders\BufferInfoBuilder.h"
+#include <Systems\Graphics\IGraphicsPipeline.h>
 
-
-struct VertexBuffer
+struct Buffer
 {
 	VkBuffer buffer;
 	VkBuffer bufferMemory;
+};
+
+struct TransferBuffer
+{
+	Buffer stagingBuffer;
+	Buffer mainBuffer;
+	uint32_t size;
 };
 
 struct ShaderStage
@@ -37,8 +45,9 @@ public:
 
 	virtual void Initialize(
 		std::function<void(const VkInstance&, VkSurfaceKHR*)> createSurface,
-		std::function<void(VkDevice, VkPipelineLayout*, VkPipeline*, VkExtent2D)> createGraphicsPipeline,
+		std::function<void(VkDevice)> createGraphicsPipeline,
 		std::function<void(VkCommandBuffer)> createDrawCommands,
+		std::function<void()> createVertexBuffers,
 		glm::vec2 dimensions) = 0;
 	virtual void Draw() = 0;
 	virtual void RecreateSwapChain(glm::vec2 dimensions) = 0;
@@ -46,8 +55,9 @@ public:
 	virtual void SetDeviceExtensions(std::vector<const char *> extensions) = 0;
 	virtual VkShaderModule CreateShaderModule(const char * filename) = 0;
 	virtual VkPhysicalDevice GetPhysicalDevice() const = 0;
-	virtual void WaitTilIdle() const = 0;
-	virtual VertexBuffer CreateBuffer(VkBufferCreateInfo bufferInfo, void * data) = 0;
+	virtual void WaitUntilDeviceIdle() const = 0;
+	virtual void WaitUntilGraphicsQueueIdle() const = 0;
+	virtual Buffer CreateBuffer(VkBufferCreateInfo bufferInfo, VkMemoryPropertyFlagBits properties = (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) = 0;
 
 	virtual VkRenderPass CreateRenderPass() = 0;
 	virtual VkRenderPass CreateRenderPass(const VkAttachmentDescription & colorAttachment, const  VkSubpassDescription & subpassDescription, VkSubpassDependency const & subpassDepdency) = 0;
@@ -56,21 +66,28 @@ public:
 	virtual VkRenderPass GetRenderPass() const = 0;
 	virtual std::vector<VkPipelineShaderStageCreateInfo> CreateShaderStages(const std::vector<ShaderStage> & shaderStages) = 0;
 	virtual VkPipeline CreateGraphicsPipeline(VkPipelineVertexInputStateCreateInfo vertexInput, const std::vector<VkPipelineShaderStageCreateInfo> & shaderStages) = 0;
+	virtual VkPipeline CreateGraphicsPipeline(VkPipelineVertexInputStateCreateInfo vertexInput, const std::vector<VkPipelineShaderStageCreateInfo> & shaderStages, VkPipelineLayoutCreateInfo pipelineInfo) = 0;
 	virtual void SetGraphicsPipeline(VkPipeline pipeline) = 0;
+
+	virtual const VDeleter<VkDevice> & GetDevice() const = 0;
+	virtual VkCommandPool GetCommandPool() const = 0;
+	virtual VkQueue GetGraphicsQueue() const = 0;
+	virtual VkPipelineLayout GetPipelineLayout() const = 0;
+	virtual TransferBuffer MapToLocalMemory(uint32_t bufferSize, void * data, VkBufferUsageFlagBits usage = (VkBufferUsageFlagBits)(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)) = 0;
+	virtual void MapToLocalMemory(TransferBuffer buffer, void * data) = 0;
+	virtual GraphicsPipelineCreator * StartGraphicsPipeline(VkPipelineVertexInputStateCreateInfo vertexInput, const std::vector<VkPipelineShaderStageCreateInfo> & shaderStages) = 0;
 };
 
 
 class VulkanGraphicsSystem : public IVulkanGraphicsSystem
 {
 public:
-	VulkanGraphicsSystem()
+	VulkanGraphicsSystem() : graphicsPipelineCreator(new GraphicsPipelineCreator())
 	{
 	}
 
 	~VulkanGraphicsSystem()
 	{
-
-
 		for (auto buffer : vertexBuffers){
 			buffer.Release();
 		}
@@ -93,8 +110,9 @@ public:
 
 	void Initialize(
 		std::function<void(const VkInstance&, VkSurfaceKHR*)> createSurface,
-		std::function<void(VkDevice, VkPipelineLayout*, VkPipeline*, VkExtent2D)> createGraphicsPipeline,
+		std::function<void(VkDevice)> createGraphicsPipeline,
 		std::function<void(VkCommandBuffer)> createDrawCommands,
+		std::function<void()> createVertexBuffers,
 		glm::vec2 dimensions) override {
 		initInstance();
 
@@ -109,16 +127,23 @@ public:
 		createLogicalDevice();
 		createSwapChain();
 		createImageViews();
-		currentRenderPass = CreateRenderPass();
-		createGraphicsPipeline(device, &pipelineLayout, &graphicsPipeline, swapChainExtent);
+		graphicsPipelineCreator->SetRenderpass(CreateRenderPass());
+		graphicsPipelineCreator->Initialize(device, swapChainExtent, glm::vec2(width, height));
+		createGraphicsPipeline(device);
 		createFramebuffers();
 		createCommandPool();
+		createVertexBuffers();
 		createCommandBuffers();
 		createSemaphores();
 	}
 
+	virtual GraphicsPipelineCreator * StartGraphicsPipeline(VkPipelineVertexInputStateCreateInfo vertexInput, const std::vector<VkPipelineShaderStageCreateInfo> & shaderStages) override {
+		return this->graphicsPipelineCreator
+			   ->StartGraphicsPipeline(vertexInput, shaderStages);
+	}
 
-	VertexBuffer CreateBuffer(VkBufferCreateInfo bufferInfo, void * data) override {
+
+	Buffer CreateBuffer(VkBufferCreateInfo bufferInfo, VkMemoryPropertyFlagBits properties = (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) override {
 		vertexBuffers.push_back({ device,vkDestroyBuffer });
 		vkOk(vkCreateBuffer(device, &bufferInfo, nullptr, &vertexBuffers[vertexBuffers.size() - 1]), "Failed to create the vertex buffer");
 		auto vertexBuffer = vertexBuffers[vertexBuffers.size() - 1];
@@ -131,24 +156,94 @@ public:
 		VkMemoryAllocateInfo allocateInfo = {};
 		allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		allocateInfo.allocationSize = memoryRequirements.size;
-		allocateInfo.memoryTypeIndex = findMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, GetPhysicalDevice());
+		allocateInfo.memoryTypeIndex = findMemoryType(memoryRequirements.memoryTypeBits, properties, GetPhysicalDevice());
 
 		vkOk(vkAllocateMemory(device, &allocateInfo, nullptr, &vertexMemoryBuffers[vertexMemoryBuffers.size() - 1]), "Failed to allocate vertex buffer memory");
 
 		vkBindBufferMemory(device, vertexBuffer, vertexMemoryBuffers[vertexMemoryBuffers.size() - 1], 0);
-		void * newData;
-		vkMapMemory(device, vertexMemoryBuffers[vertexMemoryBuffers.size() - 1], 0, bufferInfo.size, 0, &newData);
-		memcpy(newData, data, (size_t)bufferInfo.size);
-		vkUnmapMemory(device, vertexMemoryBuffers[vertexMemoryBuffers.size() - 1]);
 
 		auto vertexBufferMemory = vertexMemoryBuffers[vertexMemoryBuffers.size() - 1];
 		return {vertexBuffer, vertexBufferMemory};
 	}
 
+	virtual void MapToLocalMemory(TransferBuffer buffer, void * data) override {
+		void * newData;
+		vkMapMemory(device, buffer.stagingBuffer.bufferMemory, 0, buffer.size, 0, &newData);
+		memcpy(newData, data, (size_t)buffer.size);
+		vkUnmapMemory(device, buffer.stagingBuffer.bufferMemory);
+		
+		VkCommandBufferAllocateInfo allocInfo = {};
+		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		allocInfo.commandPool = commandPool;
+		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		allocInfo.commandBufferCount = 1;
+
+		VkCommandBuffer commandBuffer;
+		vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
+
+		VkCommandBufferBeginInfo beginInfo = {};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+		vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+		VkBufferCopy copyRegion = {};
+		copyRegion.srcOffset = 0;
+		copyRegion.dstOffset = 0;
+		copyRegion.size = buffer.size;
+
+		vkCmdCopyBuffer(commandBuffer, buffer.stagingBuffer.buffer, buffer.mainBuffer.buffer, 1, &copyRegion);
+		vkEndCommandBuffer(commandBuffer);
+
+		VkSubmitInfo submitInfo = {};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &commandBuffer;
+
+		vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+		WaitUntilGraphicsQueueIdle();
+
+		vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+
+	}
+	virtual VkPipelineLayout GetPipelineLayout() const override{
+		return pipelineLayout;
+	}
+	virtual TransferBuffer MapToLocalMemory(uint32_t bufferSize, void * data, VkBufferUsageFlagBits usage = (VkBufferUsageFlagBits)(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)) override {
+		auto stagingBufferInfo = BufferInfoBuilder(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+			.Build();
+		auto stagingBuffer = CreateBuffer(stagingBufferInfo);
+		/*void * newData;
+		vkMapMemory(device, stagingBuffer.bufferMemory, 0, stagingBufferInfo.size, 0, &newData);
+		memcpy(newData, data, (size_t)stagingBufferInfo.size);
+		vkUnmapMemory(device, stagingBuffer.bufferMemory);*/
+
+		auto bufferInfo = BufferInfoBuilder(bufferSize, usage)
+			.Build();
+
+		auto buffer = CreateBuffer(bufferInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+		TransferBuffer transferBuffer = {};// {stagingBuffer, vertexBuffer, bufferSize};
+		transferBuffer.mainBuffer = buffer;
+		transferBuffer.size = bufferSize;
+		transferBuffer.stagingBuffer = stagingBuffer;
+
+
+		MapToLocalMemory(transferBuffer,data);
+		
+		return transferBuffer;
+	}
+
 	virtual VkShaderModule CreateShaderModule(const char * filename) override {
 		shaderModules.push_back({ device,vkDestroyShaderModule });
-		vkOk(vkCreateShaderModule(device, &ShaderModuleInfoBuilder(readFile(filename)).Build(), nullptr, &shaderModules[shaderModules.size() - 1]));
-		return shaderModules[shaderModules.size() - 1];
+		auto shaderModuleInfo = ShaderModuleInfoBuilder(readFile(filename)).Build();
+		VkShaderModule* shaderModule = &shaderModules[shaderModules.size() - 1];
+		vkOk(vkCreateShaderModule(device, &shaderModuleInfo, nullptr, shaderModule));
+		return *shaderModule;
+	}
+
+	virtual VkCommandPool GetCommandPool() const override{
+		return commandPool;
 	}
 
 	virtual VkPhysicalDevice GetPhysicalDevice() const {
@@ -197,9 +292,14 @@ public:
 		}
 	}
 
-	void WaitTilIdle()const override{
+	void WaitUntilDeviceIdle()const override{
 		vkDeviceWaitIdle(device);
 	}
+
+	virtual void WaitUntilGraphicsQueueIdle() const override {
+		vkQueueWaitIdle(graphicsQueue);
+	}
+
 	void SetValidationLayers(std::vector<const char *> layers) override {
 		validationLayers = std::move(layers);
 	}
@@ -211,12 +311,14 @@ public:
 	void RecreateSwapChain(glm::vec2 dimensions) override{
 		width = static_cast<uint32_t>(dimensions.x);
 		height = static_cast<uint32_t>(dimensions.y);
+		graphicsPipelineCreator->SetDimensions(dimensions);
 		vkDeviceWaitIdle(device);
 
 		createSwapChain();
+		graphicsPipelineCreator->SetSwapchainExtent(swapChainExtent);
 		createImageViews();
 		CreateRenderPass();
-		createGraphicsPipeline(device,&pipelineLayout,&graphicsPipeline,swapChainExtent);
+		createGraphicsPipeline(device);
 		createFramebuffers();
 		createCommandBuffers();
 	}
@@ -226,20 +328,28 @@ public:
 
 	}
 
-	VkRenderPass GetRenderPass() const { return currentRenderPass; }
+	virtual const VDeleter<VkDevice> & GetDevice() const override {
+		return device;
+	}
 
-	VkRenderPass CreateRenderPass(const VkAttachmentDescription & colorAttachment,const  VkSubpassDescription & subpassDescription, VkSubpassDependency const & subpassDepdency) override {
+	virtual VkQueue GetGraphicsQueue() const override {
+		return graphicsQueue;
+	}
+
+	virtual VkRenderPass GetRenderPass() const { return graphicsPipelineCreator->GetRenderPass(); }
+
+	virtual VkRenderPass CreateRenderPass(const VkAttachmentDescription & colorAttachment,const  VkSubpassDescription & subpassDescription, VkSubpassDependency const & subpassDepdency) override {
 		auto renderPassInfo = RenderpassInfoBuilder(&colorAttachment, &subpassDescription, &subpassDepdency).Build();
 		return CreateRenderPass(renderPassInfo);
 	}
 
-	VkRenderPass CreateRenderPass(VkRenderPassCreateInfo renderPassInfo) override {
+	virtual VkRenderPass CreateRenderPass(VkRenderPassCreateInfo renderPassInfo) override {
 		renderpasses.push_back({ device,vkDestroyRenderPass });
 		vkOk(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderpasses[renderpasses.size()-1]), "Failed to create render pass!");
 		return renderpasses[renderpasses.size() - 1];
 	}
 
-	VkRenderPass CreateRenderPass() override {
+	virtual VkRenderPass CreateRenderPass() override {
 		auto colorAttachment = AttachmentDescriptionBuilder(swapChainImageFormat).Build();
 		auto colorAttachmentRef = AttachmentReferenceBuilder().Build();
 		auto subPass = SubpassDescriptionBuilder(&colorAttachmentRef).Build();
@@ -248,52 +358,27 @@ public:
 		return CreateRenderPass(colorAttachment, subPass, subpassDependancy);
 	}
 
-	VkPipeline CreateGraphicsPipeline(VkPipelineVertexInputStateCreateInfo vertexInput, const std::vector<VkPipelineShaderStageCreateInfo> & shaderStages){
+	virtual VkPipeline CreateGraphicsPipeline(VkPipelineVertexInputStateCreateInfo vertexInput, const std::vector<VkPipelineShaderStageCreateInfo> & shaderStages) override{
+		auto viewport = ViewportBuilder(static_cast<float>(width), static_cast<float>(height)).Build();
+		auto scissor = ScissorBuilder(swapChainExtent).Build();
+
+		auto pipelineLayoutInfo = PipelineLayoutBuilder().Build();
+		auto viewportStateInfo = ViewportStateBuilder(&viewport, &scissor).Build();
+		auto colorBlending = ColorBlendStateBuilder().Build();
+
+		return CreateGraphicsPipeline(vertexInput, shaderStages, pipelineLayoutInfo, 
+							viewportStateInfo, colorBlending);
+	}
+
+	virtual VkPipeline CreateGraphicsPipeline(VkPipelineVertexInputStateCreateInfo vertexInput, const std::vector<VkPipelineShaderStageCreateInfo> & shaderStages, VkPipelineLayoutCreateInfo layoutInfo) override{
 		auto viewport = ViewportBuilder(static_cast<float>(width), static_cast<float>(height)).Build();
 		auto scissor = ScissorBuilder(swapChainExtent).Build();
 
 		auto viewportStateInfo = ViewportStateBuilder(&viewport, &scissor).Build();
 		auto colorBlending = ColorBlendStateBuilder().Build();
-		auto pipelineLayoutInfo = PipelineLayoutBuilder().Build();
 
-		VkPipelineLayout layout;
-		vkOk(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &layout), "Failed to create the pipeline layout!");
-
-		auto pipelineInfo = GraphicsPipelineBuilder(shaderStages, &viewportStateInfo,
-			&colorBlending, layout, this->GetRenderPass())
-			.WithVertexInputState(&vertexInput)
-			->Build();
-
-		auto pipeline = CreateGraphicsPipeline(pipelineInfo);
-		vkDestroyPipelineLayout(device, layout, nullptr);
-		return pipeline;
-	}
-
-	VkPipeline CreateGraphicsPipeline(
-		VkPipelineVertexInputStateCreateInfo vertexInput,
-		const std::vector<VkPipelineShaderStageCreateInfo> & shaderStages,
-		VkPipelineViewportStateCreateInfo viewport,
-		VkPipelineColorBlendStateCreateInfo colorBlending,
-		VkPipelineLayoutCreateInfo pipelineLayoutInfo) {
-
-		VkPipelineLayout layout;
-		vkOk(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &layout), "Failed to create the pipeline layout!");
-
-		auto pipelineInfo = GraphicsPipelineBuilder(shaderStages, &viewport,
-			&colorBlending, layout, this->GetRenderPass())
-			.WithVertexInputState(&vertexInput)
-			->Build();
-
-		auto pipeline = CreateGraphicsPipeline(pipelineInfo);
-		vkDestroyPipelineLayout(device, layout, nullptr);
-
-		return pipeline;
-	}
-
-	VkPipeline CreateGraphicsPipeline(VkGraphicsPipelineCreateInfo graphicsCreateInfo) {
-		VkPipeline pipeline;
-		vkOk(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &graphicsCreateInfo, nullptr, &pipeline));
-		return pipeline;
+		return CreateGraphicsPipeline(vertexInput, shaderStages, layoutInfo,
+			viewportStateInfo, colorBlending);
 	}
 	
 	void SetGraphicsPipeline(VkPipeline pipeline) {
@@ -311,10 +396,41 @@ public:
 	}
 
 	void SetRenderpass(VkRenderPass renderPass) override {
-		currentRenderPass = renderPass;
+		graphicsPipelineCreator->SetRenderpass(renderPass);
 	}
 
 private:
+
+	VkPipeline CreateGraphicsPipeline(
+		VkPipelineVertexInputStateCreateInfo vertexInput,
+		const std::vector<VkPipelineShaderStageCreateInfo> & shaderStages,
+		VkPipelineLayoutCreateInfo pipelineLayoutInfo,
+		VkPipelineViewportStateCreateInfo viewport,
+		VkPipelineColorBlendStateCreateInfo colorBlending) {
+
+		
+		vkOk(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout), "Failed to create the pipeline layout!");
+		auto rasterizerState = RasterizationStateBuilder()
+			.WithCounterClockwiseFace()
+			->WithBackCulling()
+			->Build();
+		auto pipelineInfo = GraphicsPipelineBuilder(shaderStages, viewport,
+			colorBlending, pipelineLayout, this->GetRenderPass())
+			.WithVertexInputState(vertexInput)
+			->WithRasterizationState(rasterizerState)
+			->Build();
+
+		auto pipeline = CreateGraphicsPipeline(pipelineInfo);
+
+		return pipeline;
+	}
+
+	VkPipeline CreateGraphicsPipeline(VkGraphicsPipelineCreateInfo graphicsCreateInfo) {
+		VkPipeline pipeline;
+		vkOk(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &graphicsCreateInfo, nullptr, &pipeline));
+		return pipeline;
+	}
+
 	void initInstance() {
 		if (enableValidationLayers && !VulkanValidation::checkValidationLayerSupport(validationLayers)) {
 			throw std::runtime_error("validation layers requested, but not available");
@@ -367,7 +483,7 @@ private:
 
 			VkRenderPassBeginInfo renderPassInfo = {};
 			renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-			renderPassInfo.renderPass = currentRenderPass;
+			renderPassInfo.renderPass = graphicsPipelineCreator->GetRenderPass();
 			renderPassInfo.framebuffer = swapChainFramebuffers[i];
 
 			renderPassInfo.renderArea.offset = { 0,0 };
@@ -403,7 +519,7 @@ private:
 
 		for (unsigned int i = 0; i < swapChainImageViews.size(); i++) {
 			VkImageView attachments[] = { swapChainImageViews[i] };
-			auto frameBufferInfoBuilder = FrameBufferInfoBuilder(currentRenderPass, swapChainExtent, attachments, 1);
+			auto frameBufferInfoBuilder = FrameBufferInfoBuilder(graphicsPipelineCreator->GetRenderPass(), swapChainExtent, attachments, 1);
 			vkOk(vkCreateFramebuffer(device, &frameBufferInfoBuilder.Build(), nullptr, &swapChainFramebuffers[i]), "Failed to create framebuffer");
 		}
 	}
@@ -518,7 +634,7 @@ private:
 		vkGetDeviceQueue(device, indices.presentFamily, 0, &presentQueue);
 	}
 
-	std::function<void(VkDevice, VkPipelineLayout*, VkPipeline*, VkExtent2D)> createGraphicsPipeline;
+	std::function<void(VkDevice)> createGraphicsPipeline;
 	std::function<void(VkCommandBuffer)> createDrawCommands;
 	uint32_t width;
 	uint32_t height;
@@ -529,7 +645,6 @@ private:
 
 	VkPipeline graphicsPipeline;
 
-	VkRenderPass currentRenderPass;
 	std::vector<VRelease<VkRenderPass>> renderpasses;
 
 	VDeleter<VkPipelineLayout> pipelineLayout{ device, vkDestroyPipelineLayout };
@@ -555,4 +670,5 @@ private:
 	VDeleter<VkDebugReportCallbackEXT> callback{ instance, VulkanDebug::DestroyDebugReportCallbackEXT };
 	std::vector<const char *> validationLayers;
 	std::vector<const char *> deviceExtensions;
+	std::unique_ptr<GraphicsPipelineCreator> graphicsPipelineCreator;
 };

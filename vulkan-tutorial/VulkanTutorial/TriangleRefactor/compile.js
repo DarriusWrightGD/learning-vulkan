@@ -27,7 +27,7 @@ files.forEach(f=> {
     console.log("Running the following command: " + command);
 
     exec(command, (error, stdout, stderr) => {
-      if (error) console.error(`exec ${error.trim()}`);
+      if (error) console.error(`exec ${error}`);
       if (stdout) console.log(`stdout: ${stdout.trim()}`);
       if(stderr) console.log(`stderr: ${stderr.trim()}`);
     });

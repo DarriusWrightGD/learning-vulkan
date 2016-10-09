@@ -74,10 +74,15 @@
     <ClInclude Include="VkRelease.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Systems\Graphics\IGraphicsPipeline.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\shader.vert" />
     <None Include="shaders\shader.frag" />
     <None Include="compile.js" />
+    <None Include="shaders\uniforms\uniforms.vert" />
+    <None Include="shaders\uniforms\uniforms.frag" />
   </ItemGroup>
 </Project>

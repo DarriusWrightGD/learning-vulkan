@@ -173,6 +173,7 @@
     <ClInclude Include="Builders\GraphicsPipelineBuilder.h" />
     <ClInclude Include="Exception.h" />
     <ClInclude Include="Builders\InstanceBuilder.h" />
+    <ClInclude Include="Systems\Graphics\IGraphicsPipeline.h" />
     <ClInclude Include="Systems\Graphics\IVulkanGraphicsSystem.h" />
     <ClInclude Include="VkDeleter.h" />
     <ClInclude Include="VkRelease.h" />
@@ -182,6 +183,8 @@
     <None Include="compile.js" />
     <None Include="shaders\shader.frag" />
     <None Include="shaders\shader.vert" />
+    <None Include="shaders\uniforms\uniforms.frag" />
+    <None Include="shaders\uniforms\uniforms.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

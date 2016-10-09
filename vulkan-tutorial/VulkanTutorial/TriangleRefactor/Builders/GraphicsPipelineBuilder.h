@@ -244,6 +244,23 @@ private:
 class RasterizationStateBuilder
 {
 public:
+	RasterizationStateBuilder* WithCullMode(VkCullModeFlagBits mode) {
+		cullMode = mode;
+		return this;
+	}
+
+	RasterizationStateBuilder* WithBackCulling() {
+		return WithCullMode(VK_CULL_MODE_BACK_BIT);
+	}
+
+	RasterizationStateBuilder* WithFrontCulling() {
+		return WithCullMode(VK_CULL_MODE_FRONT_BIT);
+	}
+
+	RasterizationStateBuilder* WithNoCulling() {
+		return WithCullMode(VK_CULL_MODE_NONE);
+	}
+
 	RasterizationStateBuilder* EnabledDepthClamp() {
 		depthClampEnable = VK_TRUE;
 		return this;
@@ -284,11 +301,11 @@ public:
 		return this;
 	}
 
-	RasterizationStateBuilder* WithFaceClockwise() {
+	RasterizationStateBuilder* WithClockwiseFace() {
 		return WithFrontFace(VK_FRONT_FACE_CLOCKWISE);
 	}
 
-	RasterizationStateBuilder* WithFaceCounterClockwise() {
+	RasterizationStateBuilder* WithCounterClockwiseFace() {
 		return WithFrontFace(VK_FRONT_FACE_COUNTER_CLOCKWISE);
 	}
 
@@ -505,6 +522,16 @@ private:
 class PipelineLayoutBuilder
 {
 public:
+	PipelineLayoutBuilder()
+	{
+
+	}
+
+	PipelineLayoutBuilder(uint32_t layoutCount , const VkDescriptorSetLayout * layouts) : setLayoutCount(layoutCount),
+		layouts(layouts)
+	{
+
+	}
 	VkPipelineLayoutCreateInfo Build()
 	{
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
@@ -527,39 +554,44 @@ class GraphicsPipelineBuilder
 {
 public:
 	GraphicsPipelineBuilder(const std::vector<VkPipelineShaderStageCreateInfo> & shaders,
-		const VkPipelineViewportStateCreateInfo * viewportState, const VkPipelineColorBlendStateCreateInfo * colorBlendState,
+		VkPipelineViewportStateCreateInfo viewportState, VkPipelineColorBlendStateCreateInfo colorBlendState,
 		VkPipelineLayout pipelineLayout, VkRenderPass renderPass)
 	: shaderStages(shaders.data()), shaderCount(shaders.size()), viewportState(viewportState),
 		colorBlendState(colorBlendState), layout(pipelineLayout), renderPass(renderPass){
 
 	}
 
-	GraphicsPipelineBuilder* WithVertexInputState(const VkPipelineVertexInputStateCreateInfo * inputState) {
+	GraphicsPipelineBuilder* WithVertexInputState(VkPipelineVertexInputStateCreateInfo inputState) {
 		vertexInputState = inputState;
 		return this;
 	}
 
-	GraphicsPipelineBuilder* WithInputAssemblyState(const VkPipelineInputAssemblyStateCreateInfo * inputState) {
+	GraphicsPipelineBuilder* WithInputAssemblyState(VkPipelineInputAssemblyStateCreateInfo inputState) {
 		inputAssemblyState = inputState;
 		return this;
 	}
 
-	GraphicsPipelineBuilder* WithMultisampleState(const VkPipelineMultisampleStateCreateInfo * inputState) {
+	GraphicsPipelineBuilder* WithPipelineLayout(VkPipelineLayout layout) {
+		this->layout = layout;
+		return this;
+	}
+
+	GraphicsPipelineBuilder* WithMultisampleState(VkPipelineMultisampleStateCreateInfo inputState) {
 		multisampleState = inputState;
 		return this;
 	}
 
-	GraphicsPipelineBuilder* WithRasterizationState(const VkPipelineRasterizationStateCreateInfo * inputState) {
+	GraphicsPipelineBuilder* WithRasterizationState(VkPipelineRasterizationStateCreateInfo inputState) {
 		rasterizationState = inputState;
 		return this;
 	}
 
-	GraphicsPipelineBuilder* WithDepthStencilState(const VkPipelineDepthStencilStateCreateInfo * inputState) {
+	GraphicsPipelineBuilder* WithDepthStencilState(VkPipelineDepthStencilStateCreateInfo inputState) {
 		depthStencilState = inputState;
 		return this;
 	}
 
-	GraphicsPipelineBuilder* WithDynamicState(const VkPipelineDynamicStateCreateInfo * inputState) {
+	GraphicsPipelineBuilder* WithDynamicState(VkPipelineDynamicStateCreateInfo inputState) {
 		dynamicState = inputState;
 		return this;
 	}
@@ -581,14 +613,14 @@ public:
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 		pipelineInfo.stageCount = shaderCount;
 		pipelineInfo.pStages = shaderStages;
-		pipelineInfo.pVertexInputState = vertexInputState;
-		pipelineInfo.pInputAssemblyState = inputAssemblyState;
-		pipelineInfo.pViewportState = viewportState;
-		pipelineInfo.pMultisampleState = multisampleState;
-		pipelineInfo.pRasterizationState = rasterizationState;
-		pipelineInfo.pDepthStencilState = depthStencilState;
-		pipelineInfo.pColorBlendState = colorBlendState;
-		pipelineInfo.pDynamicState = dynamicState;
+		pipelineInfo.pVertexInputState = &vertexInputState;
+		pipelineInfo.pInputAssemblyState = &inputAssemblyState;
+		pipelineInfo.pViewportState = &viewportState;
+		pipelineInfo.pMultisampleState = &multisampleState;
+		pipelineInfo.pRasterizationState = &rasterizationState;
+		pipelineInfo.pDepthStencilState = (depthStencilState.sType == NULL_TYPE) ? nullptr: &depthStencilState;
+		pipelineInfo.pColorBlendState = (colorBlendState.sType == NULL_TYPE) ? nullptr : &colorBlendState;
+		pipelineInfo.pDynamicState = (dynamicState.sType == NULL_TYPE) ? nullptr : &dynamicState;
 		pipelineInfo.layout = layout;
 		pipelineInfo.renderPass = renderPass;
 		pipelineInfo.subpass = subpass;
@@ -599,6 +631,7 @@ public:
 	}
 
 private:
+	const VkStructureType NULL_TYPE = (VkStructureType)-858993460;
 	uint32_t shaderCount = 2;
 	const VkPipelineVertexInputStateCreateInfo basicVertexInput = VertexInputBuilder().Build();
 	const VkPipelineInputAssemblyStateCreateInfo basicInputState = InputAssemblyBuilder().Build();
@@ -606,14 +639,14 @@ private:
 	const VkPipelineRasterizationStateCreateInfo basicRasterizationState = RasterizationStateBuilder().Build();
 
 	const VkPipelineShaderStageCreateInfo * shaderStages;
-	const VkPipelineVertexInputStateCreateInfo * vertexInputState = &basicVertexInput;
-	const VkPipelineInputAssemblyStateCreateInfo * inputAssemblyState = &basicInputState;
-	const VkPipelineViewportStateCreateInfo * viewportState;
-	const VkPipelineMultisampleStateCreateInfo * multisampleState = &basicMultisampleState;
-	const VkPipelineRasterizationStateCreateInfo * rasterizationState = &basicRasterizationState;
-	const VkPipelineDepthStencilStateCreateInfo * depthStencilState = nullptr;
-	const VkPipelineColorBlendStateCreateInfo * colorBlendState;
-	const VkPipelineDynamicStateCreateInfo * dynamicState = nullptr;
+	VkPipelineVertexInputStateCreateInfo vertexInputState = basicVertexInput;
+	VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = basicInputState;
+	VkPipelineViewportStateCreateInfo viewportState;
+	VkPipelineMultisampleStateCreateInfo multisampleState = basicMultisampleState;
+	VkPipelineRasterizationStateCreateInfo rasterizationState = basicRasterizationState;
+	VkPipelineDepthStencilStateCreateInfo depthStencilState;
+	VkPipelineColorBlendStateCreateInfo colorBlendState;
+	VkPipelineDynamicStateCreateInfo dynamicState;
 	VkPipelineLayout layout;
 	VkRenderPass renderPass;
 	uint32_t subpass = 0;
