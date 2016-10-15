@@ -69,7 +69,7 @@ public:
 	virtual VkPipeline CreateGraphicsPipeline(VkPipelineVertexInputStateCreateInfo vertexInput, const std::vector<VkPipelineShaderStageCreateInfo> & shaderStages, VkPipelineLayoutCreateInfo pipelineInfo) = 0;
 	virtual void SetGraphicsPipeline(VkPipeline pipeline) = 0;
 
-	virtual const VDeleter<VkDevice> & GetDevice() const = 0;
+	virtual const VRelease<VkDevice> & GetDevice() const = 0;
 	virtual VkCommandPool GetCommandPool() const = 0;
 	virtual VkQueue GetGraphicsQueue() const = 0;
 	virtual VkPipelineLayout GetPipelineLayout() const = 0;
@@ -106,6 +106,26 @@ public:
 		}
 
 		vkDestroyPipeline(device, graphicsPipeline, nullptr);
+
+		swapChain.Release();
+		pipelineLayout.Release();
+		commandPool.Release();
+		imageAvailableSemaphore.Release();
+		renderFinishedSemaphore.Release();
+
+		for (auto swapChainFrameBuffer : swapChainFramebuffers) {
+			swapChainFrameBuffer.Release();
+		}
+		for (auto swapChainImageView : swapChainImageViews) {
+			swapChainImageView.Release();
+		}
+
+		graphicsPipelineCreator->Cleanup();
+
+		device.Release();
+		callback.Release();
+		surface.Release();
+		instance.Release();
 	}
 
 	void Initialize(
@@ -127,8 +147,9 @@ public:
 		createLogicalDevice();
 		createSwapChain();
 		createImageViews();
+		//currentRenderPass = CreateRenderPass();
 		graphicsPipelineCreator->SetRenderpass(CreateRenderPass());
-		graphicsPipelineCreator->Initialize(device, swapChainExtent, glm::vec2(width, height));
+		graphicsPipelineCreator->Initialize(device,swapChainExtent,glm::vec2(width,height));
 		createGraphicsPipeline(device);
 		createFramebuffers();
 		createCommandPool();
@@ -207,7 +228,7 @@ public:
 
 	}
 	virtual VkPipelineLayout GetPipelineLayout() const override{
-		return pipelineLayout;
+		return graphicsPipelineCreator->GetPipelineLayout();
 	}
 	virtual TransferBuffer MapToLocalMemory(uint32_t bufferSize, void * data, VkBufferUsageFlagBits usage = (VkBufferUsageFlagBits)(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)) override {
 		auto stagingBufferInfo = BufferInfoBuilder(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
@@ -236,10 +257,8 @@ public:
 
 	virtual VkShaderModule CreateShaderModule(const char * filename) override {
 		shaderModules.push_back({ device,vkDestroyShaderModule });
-		auto shaderModuleInfo = ShaderModuleInfoBuilder(readFile(filename)).Build();
-		VkShaderModule* shaderModule = &shaderModules[shaderModules.size() - 1];
-		vkOk(vkCreateShaderModule(device, &shaderModuleInfo, nullptr, shaderModule));
-		return *shaderModule;
+		vkOk(vkCreateShaderModule(device, &ShaderModuleInfoBuilder(readFile(filename)).Build(), nullptr, &shaderModules[shaderModules.size() - 1]));
+		return shaderModules[shaderModules.size() - 1];
 	}
 
 	virtual VkCommandPool GetCommandPool() const override{
@@ -311,11 +330,10 @@ public:
 	void RecreateSwapChain(glm::vec2 dimensions) override{
 		width = static_cast<uint32_t>(dimensions.x);
 		height = static_cast<uint32_t>(dimensions.y);
-		graphicsPipelineCreator->SetDimensions(dimensions);
+		vkDestroyPipeline(device, graphicsPipeline, nullptr);
 		vkDeviceWaitIdle(device);
 
 		createSwapChain();
-		graphicsPipelineCreator->SetSwapchainExtent(swapChainExtent);
 		createImageViews();
 		CreateRenderPass();
 		createGraphicsPipeline(device);
@@ -328,7 +346,7 @@ public:
 
 	}
 
-	virtual const VDeleter<VkDevice> & GetDevice() const override {
+	virtual const VRelease<VkDevice> & GetDevice() const override {
 		return device;
 	}
 
@@ -363,6 +381,8 @@ public:
 		auto scissor = ScissorBuilder(swapChainExtent).Build();
 
 		auto pipelineLayoutInfo = PipelineLayoutBuilder().Build();
+
+
 		auto viewportStateInfo = ViewportStateBuilder(&viewport, &scissor).Build();
 		auto colorBlending = ColorBlendStateBuilder().Build();
 
@@ -373,6 +393,7 @@ public:
 	virtual VkPipeline CreateGraphicsPipeline(VkPipelineVertexInputStateCreateInfo vertexInput, const std::vector<VkPipelineShaderStageCreateInfo> & shaderStages, VkPipelineLayoutCreateInfo layoutInfo) override{
 		auto viewport = ViewportBuilder(static_cast<float>(width), static_cast<float>(height)).Build();
 		auto scissor = ScissorBuilder(swapChainExtent).Build();
+
 
 		auto viewportStateInfo = ViewportStateBuilder(&viewport, &scissor).Build();
 		auto colorBlending = ColorBlendStateBuilder().Build();
@@ -410,6 +431,7 @@ private:
 
 		
 		vkOk(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout), "Failed to create the pipeline layout!");
+		graphicsPipelineCreator->SetPipelineLayout(pipelineLayout);
 		auto rasterizerState = RasterizationStateBuilder()
 			.WithCounterClockwiseFace()
 			->WithBackCulling()
@@ -448,7 +470,8 @@ private:
 
 		auto exten = VulkanValidation::getRequiredExtensions();
 		instanceBuilder.WithEnabledExtensions(exten.size(), exten.data());
-		vkOk(vkCreateInstance(&instanceBuilder.Build(), nullptr, &instance), "Failed to create instance!");
+		auto instanceInfo = instanceBuilder.Build();
+		vkOk(vkCreateInstance(&instanceInfo, nullptr, &instance), "Failed to create instance!");
 	}
 
 	void createSemaphores() {
@@ -515,7 +538,7 @@ private:
 
 	void createFramebuffers()
 	{
-		swapChainFramebuffers.resize(swapChainImageViews.size(), VDeleter<VkFramebuffer>(device, vkDestroyFramebuffer));
+		swapChainFramebuffers.resize(swapChainImageViews.size(), { device, vkDestroyFramebuffer });
 
 		for (unsigned int i = 0; i < swapChainImageViews.size(); i++) {
 			VkImageView attachments[] = { swapChainImageViews[i] };
@@ -525,7 +548,7 @@ private:
 	}
 
 	void createImageViews() {
-		swapChainImageViews.resize(swapChainImages.size(), VDeleter<VkImageView>{device, vkDestroyImageView});
+		swapChainImageViews.resize(swapChainImages.size(), VRelease<VkImageView>{device, vkDestroyImageView});
 		for (unsigned int i = 0; i < swapChainImages.size(); i++) {
 			auto createInfo = SwapchainImageViewInfoBuilder(swapChainImages[i], swapChainImageFormat).Build();
 			vkOk(vkCreateImageView(device, &createInfo, nullptr, &swapChainImageViews[i]), "Failed to create image view");
@@ -638,23 +661,24 @@ private:
 	std::function<void(VkCommandBuffer)> createDrawCommands;
 	uint32_t width;
 	uint32_t height;
-	VDeleter<VkInstance> instance{ vkDestroyInstance };
-	VDeleter<VkSurfaceKHR> surface{ instance, vkDestroySurfaceKHR };
-	VDeleter<VkDevice> device{ vkDestroyDevice };
-	VDeleter<VkSwapchainKHR> swapChain{ device, vkDestroySwapchainKHR };
+	VRelease<VkInstance> instance{ vkDestroyInstance };
+	VRelease<VkSurfaceKHR> surface{ instance, vkDestroySurfaceKHR };
+	VRelease<VkDevice> device{ vkDestroyDevice };
+	VRelease<VkSwapchainKHR> swapChain{ device, vkDestroySwapchainKHR };
 
 	VkPipeline graphicsPipeline;
 
+	//VkRenderPass currentRenderPass;
 	std::vector<VRelease<VkRenderPass>> renderpasses;
 
-	VDeleter<VkPipelineLayout> pipelineLayout{ device, vkDestroyPipelineLayout };
-	VDeleter<VkCommandPool> commandPool{ device, vkDestroyCommandPool };
-	VDeleter<VkSemaphore> imageAvailableSemaphore{ device, vkDestroySemaphore };
-	VDeleter<VkSemaphore> renderFinishedSemaphore{ device, vkDestroySemaphore };
+	VRelease<VkPipelineLayout> pipelineLayout{ device, vkDestroyPipelineLayout };
+	VRelease<VkCommandPool> commandPool{ device, vkDestroyCommandPool };
+	VRelease<VkSemaphore> imageAvailableSemaphore{ device, vkDestroySemaphore };
+	VRelease<VkSemaphore> renderFinishedSemaphore{ device, vkDestroySemaphore };
 
 	std::vector<VkCommandBuffer> commandBuffers;
-	std::vector<VDeleter<VkFramebuffer>> swapChainFramebuffers;
-	std::vector<VDeleter<VkImageView>> swapChainImageViews;
+	std::vector<VRelease<VkFramebuffer>> swapChainFramebuffers;
+	std::vector<VRelease<VkImageView>> swapChainImageViews;
 	std::vector<VRelease<VkBuffer>> vertexBuffers;
 	std::vector<VRelease<VkBuffer>> vertexMemoryBuffers;
 	std::vector<VRelease<VkShaderModule>> shaderModules;
@@ -667,7 +691,7 @@ private:
 	VkQueue presentQueue;
 	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 
-	VDeleter<VkDebugReportCallbackEXT> callback{ instance, VulkanDebug::DestroyDebugReportCallbackEXT };
+	VRelease<VkDebugReportCallbackEXT> callback{ instance, VulkanDebug::DestroyDebugReportCallbackEXT };
 	std::vector<const char *> validationLayers;
 	std::vector<const char *> deviceExtensions;
 	std::unique_ptr<GraphicsPipelineCreator> graphicsPipelineCreator;

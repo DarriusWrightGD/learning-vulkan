@@ -459,6 +459,9 @@ private:
 	VkBlendOp alphaBlendOp = VK_BLEND_OP_ADD;
 };
 
+
+static const VkPipelineColorBlendAttachmentState basicBlendAttachment = ColorBlendAttachmentStateBuilder().Build();
+
 class ColorBlendStateBuilder
 {
 public:
@@ -510,7 +513,6 @@ public:
 		return colorBlending;
 	}
 private:
-	const VkPipelineColorBlendAttachmentState basicBlendAttachment = ColorBlendAttachmentStateBuilder().Build();
 
 	VkBool32 logicOpEnable = VK_FALSE;
 	VkLogicOp logicOp = VK_LOGIC_OP_COPY;
@@ -631,7 +633,7 @@ public:
 	}
 
 private:
-	const VkStructureType NULL_TYPE = (VkStructureType)-858993460;
+	const VkStructureType NULL_TYPE = (VkStructureType)0;
 	uint32_t shaderCount = 2;
 	const VkPipelineVertexInputStateCreateInfo basicVertexInput = VertexInputBuilder().Build();
 	const VkPipelineInputAssemblyStateCreateInfo basicInputState = InputAssemblyBuilder().Build();
@@ -644,9 +646,9 @@ private:
 	VkPipelineViewportStateCreateInfo viewportState;
 	VkPipelineMultisampleStateCreateInfo multisampleState = basicMultisampleState;
 	VkPipelineRasterizationStateCreateInfo rasterizationState = basicRasterizationState;
-	VkPipelineDepthStencilStateCreateInfo depthStencilState;
-	VkPipelineColorBlendStateCreateInfo colorBlendState;
-	VkPipelineDynamicStateCreateInfo dynamicState;
+	VkPipelineDepthStencilStateCreateInfo depthStencilState = {};
+	VkPipelineColorBlendStateCreateInfo colorBlendState = {};
+	VkPipelineDynamicStateCreateInfo dynamicState = {};
 	VkPipelineLayout layout;
 	VkRenderPass renderPass;
 	uint32_t subpass = 0;

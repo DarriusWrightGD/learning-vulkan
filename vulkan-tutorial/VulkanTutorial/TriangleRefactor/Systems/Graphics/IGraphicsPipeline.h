@@ -8,13 +8,8 @@
 #include <VkRelease.h>
 #include <VkDeleter.h>
 #include <Exception.h>
-static const char alphanum[] =
-"0123456789"
-"!@#$%^&*"
-"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-"abcdefghijklmnopqrstuvwxyz";
+#include <memory>
 
-static const int stringLength = sizeof(alphanum) - 1;
 struct GraphicsPipeline
 {
 	VkPipeline pipeline;
@@ -23,147 +18,50 @@ struct GraphicsPipeline
 
 class GraphicsPipelineCreator {
 public:
-	GraphicsPipelineCreator()
-	{
-	}
-	
-	~GraphicsPipelineCreator()
-	{
-		CleanupBuilder();
-	}
+	void Cleanup();
+	void Initialize(const VRelease<VkDevice> & device, const VkExtent2D & swapChainExtent, const glm::vec2 & dimensions);
+	GraphicsPipelineCreator * StartGraphicsPipeline(VkPipelineVertexInputStateCreateInfo vertexInput, const std::vector<VkPipelineShaderStageCreateInfo> & shaderStages);
+	GraphicsPipelineCreator* WithPipelineLayout(VkPipelineLayoutCreateInfo pipelineLayoutInfo);
+	GraphicsPipelineCreator* WithVertexInputState(VkPipelineVertexInputStateCreateInfo inputState);
+	GraphicsPipelineCreator* WithInputAssemblyState(VkPipelineInputAssemblyStateCreateInfo inputState);
+	GraphicsPipelineCreator* WithMultisampleState(VkPipelineMultisampleStateCreateInfo inputState);
+	GraphicsPipelineCreator* WithRasterizationState(VkPipelineRasterizationStateCreateInfo inputState);
+	GraphicsPipelineCreator* WithDepthStencilState(VkPipelineDepthStencilStateCreateInfo inputState);
+	GraphicsPipelineCreator* WithDynamicState(VkPipelineDynamicStateCreateInfo inputState);
+	GraphicsPipelineCreator* WithSubpass(uint32_t subpass);
+	GraphicsPipelineCreator* WithBasePipeline(VkPipeline pipelineHandle, uint32_t pipelineIndex);
+	GraphicsPipeline Create();
 
-	void Initialize(VDeleter<VkDevice> device, VkExtent2D swapChainExtent, glm::vec2 dimensions) {
-		this->device = device;
-		this->swapChainExtent = swapChainExtent;
-		this->dimensions = dimensions;
-	}
+	void SetDimensions(glm::vec2 dimensions);
 
-	GraphicsPipelineCreator * StartGraphicsPipeline(VkPipelineVertexInputStateCreateInfo vertexInput, const std::vector<VkPipelineShaderStageCreateInfo> & shaderStages) {
-		currentPipelineId = generateId();
-		CleanupBuilder();
+	void SetSwapchainExtent(VkExtent2D extent);
 
-		auto viewport = ViewportBuilder(dimensions.x, dimensions.y).Build();
-		auto scissor = ScissorBuilder(swapChainExtent).Build();
+	void SetPipelineLayout(VkPipelineLayout layout);
 
-		auto pipelineLayoutInfo = PipelineLayoutBuilder().Build();
-		auto viewportStateInfo = ViewportStateBuilder(&viewport, &scissor).Build();
-		auto colorBlending = ColorBlendStateBuilder().Build();
+	VkRenderPass GetRenderPass();
 
-		auto rasterizerState = RasterizationStateBuilder()
-			.WithCounterClockwiseFace()
-			->WithBackCulling()
-			->Build();
+	VkPipelineLayout GetPipelineLayout();
 
-		vkOk(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout), "Failed to create the pipeline layout!");
-
-		currentPipelineBuilder = new GraphicsPipelineBuilder(shaderStages, viewportStateInfo, colorBlending, pipelineLayout, currentRenderPass);
-	
-		return this->WithVertexInputState(vertexInput)
-			   ->WithRasterizationState(rasterizerState);
-	}
-
-	GraphicsPipelineCreator* WithPipelineLayout(VkPipelineLayoutCreateInfo pipelineLayoutInfo) {
-		vkOk(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout), "Failed to create the pipeline layout!");
-		currentPipelineBuilder->WithPipelineLayout(pipelineLayout);
-		return this;
-	}
-
-	GraphicsPipelineCreator* WithVertexInputState(VkPipelineVertexInputStateCreateInfo inputState) {
-		currentPipelineBuilder->WithVertexInputState(inputState);
-		return this;
-	}
-
-	GraphicsPipelineCreator* WithInputAssemblyState(VkPipelineInputAssemblyStateCreateInfo inputState) {
-		currentPipelineBuilder->WithInputAssemblyState(inputState);
-		return this;
-	}
-
-	GraphicsPipelineCreator* WithMultisampleState(VkPipelineMultisampleStateCreateInfo inputState) {
-		currentPipelineBuilder->WithMultisampleState(inputState);
-		return this;
-	}
-
-	GraphicsPipelineCreator* WithRasterizationState(VkPipelineRasterizationStateCreateInfo inputState) {
-		currentPipelineBuilder->WithRasterizationState(inputState);
-		return this;
-	}
-
-	GraphicsPipelineCreator* WithDepthStencilState(VkPipelineDepthStencilStateCreateInfo inputState) {
-		currentPipelineBuilder->WithDepthStencilState(inputState);
-		return this;
-	}
-
-	GraphicsPipelineCreator* WithDynamicState(VkPipelineDynamicStateCreateInfo inputState) {
-		currentPipelineBuilder->WithDynamicState(inputState);
-		return this;
-	}
-
-	GraphicsPipelineCreator* WithSubpass(uint32_t subpass) {
-		currentPipelineBuilder->WithSubpass(subpass);
-		return this;
-	}
-
-	GraphicsPipelineCreator* WithBasePipeline(VkPipeline pipelineHandle, uint32_t pipelineIndex) {
-		currentPipelineBuilder->WithBasePipeline(pipelineHandle, pipelineIndex);
-		return this;
-	}
-
-
-	GraphicsPipeline Create() {
-		GraphicsPipeline pipeline;
-		pipeline.id = currentPipelineId;
-		vkOk(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &currentPipelineBuilder->Build(), nullptr, &pipeline.pipeline));
-		return pipeline;
-	}
-
-	void SetDimensions(glm::vec2 dimensions) {
-		this->dimensions = dimensions;
-	}
-
-	void SetSwapchainExtent(VkExtent2D extent) {
-		this->swapChainExtent = extent;
-	}
-
-	VkRenderPass GetRenderPass() {
-		return currentRenderPass;
-	}
-
-	void SetRenderpass(VkRenderPass renderPass) {
-		currentRenderPass = renderPass;
-	}
-
-
+	void SetRenderpass(VkRenderPass renderPass);
 
 private:
-	VDeleter<VkDevice> device;
-	VDeleter<VkPipelineLayout> pipelineLayout{ device, vkDestroyPipelineLayout };
+	void DestoryPipelineLayout();
+
+	std::unique_ptr<VkViewport> currentViewPort = std::unique_ptr<VkViewport>(new VkViewport);
+	std::unique_ptr<VkRect2D> currentScissors = std::unique_ptr<VkRect2D>(new VkRect2D);
+
+
+	VRelease<VkDevice> device;
+	VkPipelineLayout pipelineLayout = {};
 
 	VkRenderPass currentRenderPass;
+	VkPipelineColorBlendStateCreateInfo colorBlending = ColorBlendStateBuilder().Build();
 	std::map<std::string, VkPipeline> pipelines;
 	std::string currentPipelineId;
-	GraphicsPipelineBuilder * currentPipelineBuilder = nullptr;
+	std::unique_ptr<GraphicsPipelineBuilder> currentPipelineBuilder;
 	glm::vec2 dimensions;
 	VkExtent2D swapChainExtent;
 
-	static char genRandom(){
-		return alphanum[rand() % stringLength];
-	}
-
-	static std::string generateId(unsigned int length = 10) {
-		std::string id = "";
-		for (size_t i = 0; i < length; i++)
-		{
-			id += genRandom();
-		}
-
-		return id;
-	}
-
-	void CleanupBuilder()
-	{
-		if (currentPipelineBuilder != nullptr) {
-			currentPipelineBuilder = nullptr;
-			delete currentPipelineBuilder;
-		}
-	}
+	static char genRandom();
+	static std::string generateId(unsigned int length = 10);
 };

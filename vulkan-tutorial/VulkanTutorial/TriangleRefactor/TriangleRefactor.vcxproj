@@ -157,6 +157,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Systems\Graphics\IGraphicsPipeline.cpp" />
     <ClCompile Include="VulkanDebug.h" />
   </ItemGroup>
   <ItemGroup>

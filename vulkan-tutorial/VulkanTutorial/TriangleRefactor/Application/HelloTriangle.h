@@ -17,7 +17,7 @@ using namespace std;
 /// </summary>
 
 struct UniformBufferObject {
-	glm::mat4 model = glm::mat4();
+	glm::mat4 model;
 	glm::mat4 view;
 	glm::mat4 projection;
 };
@@ -74,11 +74,11 @@ protected:
 		auto graphicsPipeline = graphicsSystem->StartGraphicsPipeline(vertexInput, shaderStages)
 			->WithPipelineLayout(pipelineLayoutInfo)
 			->Create();
+
 		graphicsSystem->SetGraphicsPipeline(graphicsPipeline.pipeline);
 
-
-		/*auto graphicsPipeline = graphicsSystem->CreateGraphicsPipeline(vertexInput, shaderStages, pipelineLayoutInfo);
-		graphicsSystem->SetGraphicsPipeline(graphicsPipeline);*/
+		//auto graphicsPipeline = graphicsSystem->CreateGraphicsPipeline(vertexInput, shaderStages, pipelineLayoutInfo);
+		//graphicsSystem->SetGraphicsPipeline(graphicsPipeline);
 	}
 
 	virtual void CreateDrawCommands(VkCommandBuffer commandBuffer) override {

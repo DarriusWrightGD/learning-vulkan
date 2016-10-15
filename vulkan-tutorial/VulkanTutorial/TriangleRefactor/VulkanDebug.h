@@ -26,7 +26,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	void * userData
 ) {
 
-	cerr << "validation layer" << message << endl;
+	cerr << layerPrefix << " : " << message << endl;
 	return VK_FALSE;
 }
 
